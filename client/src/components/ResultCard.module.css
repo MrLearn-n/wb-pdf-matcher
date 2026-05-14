@@ -1,0 +1,91 @@
+.card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.header h2 {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.backBtn {
+  font-size: 13px;
+  color: #0071e3;
+  background: none;
+  border: none;
+}
+
+.backBtn:hover { text-decoration: underline; }
+
+.counters {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.counter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.value {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -1px;
+}
+
+.label {
+  font-size: 12px;
+  color: #6e6e73;
+}
+
+.red   { color: #ff3b30; }
+.green { color: #34c759; }
+
+.bar {
+  height: 6px;
+  background: #f0f0f5;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.fill {
+  height: 100%;
+  background: #34c759;
+  border-radius: 3px;
+  transition: width .4s;
+}
+
+.barLabel {
+  font-size: 12px;
+  color: #6e6e73;
+  margin-bottom: 20px;
+}
+
+.downloadBtn {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  background: #34c759;
+  color: #fff;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  text-align: center;
+  text-decoration: none;
+  transition: background .15s;
+}
+
+.downloadBtn:hover { background: #30b350; }

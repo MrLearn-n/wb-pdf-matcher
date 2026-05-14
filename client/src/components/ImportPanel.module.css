@@ -1,0 +1,107 @@
+.panel {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+
+.title {
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  background: #f0f0f5;
+  border-radius: 8px;
+  padding: 3px;
+  margin-bottom: 14px;
+}
+
+.tab {
+  flex: 1;
+  padding: 7px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6e6e73;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+
+.tab.active {
+  background: #fff;
+  color: #1d1d1f;
+  box-shadow: 0 1px 2px rgba(0,0,0,.1);
+}
+
+.dropzone {
+  border: 2px dashed #d0d0d8;
+  border-radius: 10px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  margin-bottom: 12px;
+}
+
+.dropzone:hover, .dragging {
+  border-color: #0071e3;
+  background: #f0f6ff;
+}
+
+.hasFile {
+  border-color: #34c759;
+  background: #f0fff4;
+}
+
+.icon {
+  font-size: 24px;
+  color: #6e6e73;
+  line-height: 1;
+}
+
+.hasFile .icon { color: #34c759; }
+
+.dropText { font-size: 14px; font-weight: 500; }
+.filename { font-size: 13px; font-weight: 500; word-break: break-all; text-align: center; }
+.hint { font-size: 12px; color: #6e6e73; }
+
+.input {
+  width: 100%;
+  border: 1px solid #d0d0d8;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  outline: none;
+  transition: border-color .15s;
+  margin-bottom: 12px;
+}
+
+.input:focus { border-color: #0071e3; }
+
+.error { font-size: 13px; color: #ff3b30; margin-bottom: 10px; }
+.success { font-size: 13px; color: #34c759; margin-bottom: 10px; }
+
+.btn {
+  width: 100%;
+  padding: 11px;
+  background: #0071e3;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background .15s;
+}
+
+.btn:hover:not(:disabled) { background: #0077ed; }
+.btn:disabled { background: #c7c7cc; cursor: not-allowed; }

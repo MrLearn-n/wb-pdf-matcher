@@ -1,0 +1,102 @@
+.panel {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.header h2 {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.resetBtn {
+  font-size: 13px;
+  color: #ff3b30;
+  background: none;
+  border: 1px solid #ff3b30;
+  border-radius: 8px;
+  padding: 6px 12px;
+  transition: background .15s, color .15s;
+}
+
+.resetBtn:hover {
+  background: #ff3b30;
+  color: #fff;
+}
+
+.counters {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.statValue {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -.5px;
+}
+
+.statLabel {
+  font-size: 12px;
+  color: #6e6e73;
+}
+
+.red   { color: #ff3b30; }
+.green { color: #34c759; }
+
+.bar {
+  height: 6px;
+  background: #f0f0f5;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.fill {
+  height: 100%;
+  background: linear-gradient(90deg, #34c759, #ff9f0a);
+  border-radius: 3px;
+  transition: width .4s;
+}
+
+.barLabel {
+  font-size: 12px;
+  color: #6e6e73;
+  margin-bottom: 16px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table th {
+  text-align: left;
+  padding: 6px 8px;
+  color: #6e6e73;
+  font-weight: 500;
+  border-bottom: 1px solid #f0f0f5;
+}
+
+.table td {
+  padding: 8px 8px;
+  border-bottom: 1px solid #f8f8fa;
+}
+
+.table tr:last-child td { border-bottom: none; }

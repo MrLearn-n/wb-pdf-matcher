@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 *)",
+      "Bash(pip install *)",
+      "Bash(pip3 install *)",
+      "Bash(uv --version)",
+      "Bash(uv run --with pikepdf,pdf2image,pyzbar python3 -c ' *)",
+      "Bash(uv run --with pikepdf,pdf2image,pyzbar,pdfminer.six python3 -c ' *)",
+      "Bash(uv run --with pikepdf,pdfminer.six python3 -c ' *)",
+      "Bash(xargs -I{} fc-query --format='%{family[0]}\\\\n' {})",
+      "Bash(npm install *)",
+      "Bash(npm *)",
+      "Bash(node server/dist/index.js)",
+      "Bash(curl -s http://localhost:3001/api/stats)",
+      "Bash(curl -s -X POST http://localhost:3001/api/import -H 'Content-Type: application/json' -d '{\"dir\": \"/home/mrlearn/code/wb-pdf-matcher/wb_orders\"}')",
+      "Bash(sqlite3 /home/mrlearn/code/wb-pdf-matcher/data/chz.db \"SELECT COUNT\\(*\\) FROM chz_files;\")",
+      "Bash(xxd)",
+      "Bash(curl -v -X POST http://localhost:3001/api/match -F pdf=@/home/mrlearn/code/wb-pdf-matcher/6e1bcf7f-7535-4ea4-8cb6-da9e88de3f6c.pdf)",
+      "Bash(curl -s -X POST http://localhost:3001/api/match -F pdf=@/home/mrlearn/code/wb-pdf-matcher/6e1bcf7f-7535-4ea4-8cb6-da9e88de3f6c.pdf)",
+      "Bash(wait)",
+      "Bash(uv run --with pikepdf python3 -c ' *)",
+      "Bash(node *)",
+      "Bash(uv run --with pdfminer.six python3 -c ' *)",
+      "Bash(curl -s -X POST http://localhost:3001/api/import/zip -F file=@/tmp/wb_orders_test.zip)"
+    ]
+  }
+}
