@@ -6,4 +6,3 @@ output/
 data/
 *.local
 .env
-wb_orders/
