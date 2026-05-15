@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
 import unzipper from 'unzipper';
@@ -13,7 +14,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 const CHZ_DIR = path.join(PROJECT_ROOT, 'data', 'wb_orders');
 
-const upload = multer({ storage: multer.memoryStorage() });
+// Save uploaded ZIP to a temp file on disk — avoids buffering the whole archive in RAM
+const upload = multer({ storage: multer.diskStorage({
+  destination: os.tmpdir(),
+  filename: (_req, _file, cb) => cb(null, `chz-import-${Date.now()}.zip`),
+}) });
 const router = Router();
 
 function extractPageCount(filename: string): number | null {
@@ -62,28 +67,38 @@ router.post('/dir', (req, res) => {
 
 // POST /api/import/zip  multipart: file=<zip>  — upload ZIP archive
 router.post('/zip', upload.single('file'), async (req, res) => {
-  if (!req.file?.buffer) {
+  if (!req.file?.path) {
     res.status(400).json({ error: 'No ZIP uploaded' });
     return;
   }
 
+  const zipPath = req.file.path;
   fs.mkdirSync(CHZ_DIR, { recursive: true });
 
   try {
-    // Unzip into CHZ_DIR
-    const directory = await unzipper.Open.buffer(req.file.buffer);
-    for (const entry of directory.files) {
-      if (entry.type !== 'File') continue;
-      const basename = path.basename(entry.path);
-      if (!basename.endsWith('.pdf') || basename.startsWith('._')) continue;
-      const dest = path.join(CHZ_DIR, basename);
-      const content = await entry.buffer();
-      fs.writeFileSync(dest, content);
-    }
+    // Stream-extract one entry at a time — never holds more than one PDF in RAM
+    await new Promise<void>((resolve, reject) => {
+      fs.createReadStream(zipPath)
+        .pipe(unzipper.Parse())
+        .on('entry', (entry: unzipper.Entry) => {
+          const basename = path.basename(entry.path);
+          if (entry.type !== 'File' || !basename.endsWith('.pdf') || basename.startsWith('._')) {
+            entry.autodrain();
+            return;
+          }
+          const dest = path.join(CHZ_DIR, basename);
+          entry.pipe(fs.createWriteStream(dest))
+            .on('error', reject);
+        })
+        .on('finish', resolve)
+        .on('error', reject);
+    });
 
     res.json(importFromDir(CHZ_DIR));
   } catch (err) {
     res.status(500).json({ error: String(err) });
+  } finally {
+    fs.unlink(zipPath, () => {});
   }
 });
 
