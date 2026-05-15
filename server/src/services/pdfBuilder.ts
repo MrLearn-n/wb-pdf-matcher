@@ -12,8 +12,8 @@ import type { MatchResult } from '../types/index.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 const NOT_FOUND_PATH = path.join(PROJECT_ROOT, 'assets/not_found.pdf');
-const FONT_REG_PATH = '/usr/share/fonts/liberation/LiberationSans-Regular.ttf';
-const FONT_BOLD_PATH = '/usr/share/fonts/liberation/LiberationSans-Bold.ttf';
+const FONT_REG_PATH  = path.join(PROJECT_ROOT, 'assets/fonts/LiberationSans-Regular.ttf');
+const FONT_BOLD_PATH = path.join(PROJECT_ROOT, 'assets/fonts/LiberationSans-Bold.ttf');
 
 const W = 58 * 2.8346; // ≈164.4pt
 const H = 58 * 2.8346; // ≈164.4pt

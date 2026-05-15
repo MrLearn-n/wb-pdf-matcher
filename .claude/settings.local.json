@@ -34,7 +34,10 @@
       "Bash(curl -s -X POST http://localhost:3001/api/match -F \"pdf=@6e1bcf7f-7535-4ea4-8cb6-da9e88de3f6c.pdf\")",
       "Bash(npx tsc *)",
       "Bash(sqlite3 *)",
-      "Bash(xargs '-I{}' node -e ' *)"
+      "Bash(xargs '-I{}' node -e ' *)",
+      "Bash(dpkg -l fonts-liberation*)",
+      "Read(//usr/share/fonts/**)",
+      "Read(//usr/**)"
     ]
   }
 }
