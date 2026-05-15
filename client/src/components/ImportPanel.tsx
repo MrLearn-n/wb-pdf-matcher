@@ -30,24 +30,33 @@ export default function ImportPanel({ onImported }: Props) {
     setResult(null);
 
     try {
-      let res: Response;
       if (tab === 'zip') {
         if (!file) return;
         const form = new FormData();
         form.append('file', file);
-        res = await fetch('/api/import/zip', { method: 'POST', body: form });
+        const res = await fetch('/api/import/zip', { method: 'POST', body: form });
+        if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
+        const { jobId } = await res.json();
+
+        // Poll until done
+        while (true) {
+          await new Promise((r) => setTimeout(r, 2000));
+          const poll = await fetch(`/api/import/zip/status/${jobId}`);
+          const job = await poll.json();
+          if (job.status === 'done') { setResult({ imported: job.imported, skipped: job.skipped }); onImported(); break; }
+          if (job.status === 'error') throw new Error(job.error);
+        }
       } else {
-        res = await fetch('/api/import/dir', {
+        const res = await fetch('/api/import/dir', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ dir: dir.trim() }),
         });
+        if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
+        const data: ImportResponse = await res.json();
+        setResult(data);
+        onImported();
       }
-
-      if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
-      const data: ImportResponse = await res.json();
-      setResult(data);
-      onImported();
     } catch (e) {
       setError(String(e));
     } finally {

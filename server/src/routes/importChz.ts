@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import fs from 'fs';
+import { pipeline } from 'stream/promises';
 import path from 'path';
 import os from 'os';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
 import unzipper from 'unzipper';
@@ -14,12 +16,51 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 const CHZ_DIR = path.join(PROJECT_ROOT, 'data', 'wb_orders');
 
-// Save uploaded ZIP to a temp file on disk — avoids buffering the whole archive in RAM
 const upload = multer({ storage: multer.diskStorage({
   destination: os.tmpdir(),
   filename: (_req, _file, cb) => cb(null, `chz-import-${Date.now()}.zip`),
 }) });
 const router = Router();
+
+type Job =
+  | { status: 'pending' }
+  | { status: 'done'; imported: number; skipped: number }
+  | { status: 'error'; error: string };
+
+const jobs = new Map<string, Job>();
+
+async function processZip(zipPath: string, jobId: string): Promise<void> {
+  try {
+    fs.mkdirSync(CHZ_DIR, { recursive: true });
+
+    // Open ZIP via central directory — sequential, one file descriptor at a time
+    const directory = await unzipper.Open.file(zipPath);
+    const extractedPaths: string[] = [];
+
+    for (const entry of directory.files) {
+      const basename = path.basename(entry.path);
+      if (entry.type !== 'File' || !basename.endsWith('.pdf') || basename.startsWith('._')) continue;
+      const dest = path.join(CHZ_DIR, basename);
+      await pipeline(entry.stream(), fs.createWriteStream(dest));
+      extractedPaths.push(dest);
+    }
+
+    const entries = extractedPaths.flatMap((filePath) => {
+      const basename = path.basename(filePath);
+      const meta = parseChzFilename(basename);
+      const totalPages = extractPageCount(basename);
+      if (!meta || !totalPages) return [];
+      return [{ filePath, ...meta, totalPages }];
+    });
+
+    const result = upsertChzFilesBulk(entries);
+    jobs.set(jobId, { status: 'done', ...result });
+  } catch (err) {
+    jobs.set(jobId, { status: 'error', error: String(err) });
+  } finally {
+    fs.unlink(zipPath, () => {});
+  }
+}
 
 function extractPageCount(filename: string): number | null {
   const match = filename.match(/[_-](\d+)шт/);
@@ -65,61 +106,23 @@ router.post('/dir', (req, res) => {
   res.json(importFromDir(dir));
 });
 
-// POST /api/import/zip  multipart: file=<zip>  — upload ZIP archive
-router.post('/zip', upload.single('file'), async (req, res) => {
+// POST /api/import/zip  multipart: file=<zip>  — start async import, returns { jobId }
+router.post('/zip', upload.single('file'), (req, res) => {
   if (!req.file?.path) {
     res.status(400).json({ error: 'No ZIP uploaded' });
     return;
   }
+  const jobId = crypto.randomUUID();
+  jobs.set(jobId, { status: 'pending' });
+  res.json({ jobId });
+  processZip(req.file.path, jobId);
+});
 
-  const zipPath = req.file.path;
-  fs.mkdirSync(CHZ_DIR, { recursive: true });
-
-  // Fail fast with a clear error instead of letting Railway kill the connection with 502
-  const TIMEOUT_MS = 240_000;
-  const timeoutHandle = setTimeout(() => {
-    if (!res.headersSent) res.status(504).json({ error: 'Import timed out — ZIP is too large or disk is slow' });
-  }, TIMEOUT_MS);
-
-  try {
-    const extractedPaths: string[] = [];
-
-    await new Promise<void>((resolve, reject) => {
-      fs.createReadStream(zipPath)
-        .pipe(unzipper.Parse())
-        .on('entry', (entry: unzipper.Entry) => {
-          const basename = path.basename(entry.path);
-          if (entry.type !== 'File' || !basename.endsWith('.pdf') || basename.startsWith('._')) {
-            entry.autodrain();
-            return;
-          }
-          const dest = path.join(CHZ_DIR, basename);
-          extractedPaths.push(dest);
-          entry.pipe(fs.createWriteStream(dest))
-            .on('error', reject);
-        })
-        .on('finish', resolve)
-        .on('error', reject);
-    });
-
-    // Only process newly extracted files — bulk insert in one transaction
-    const entries = [];
-    for (const filePath of extractedPaths) {
-      const basename = path.basename(filePath);
-      const meta = parseChzFilename(basename);
-      if (!meta) continue;
-      const totalPages = extractPageCount(basename);
-      if (!totalPages) continue;
-      entries.push({ filePath, ...meta, totalPages });
-    }
-
-    if (!res.headersSent) res.json(upsertChzFilesBulk(entries));
-  } catch (err) {
-    if (!res.headersSent) res.status(500).json({ error: String(err) });
-  } finally {
-    clearTimeout(timeoutHandle);
-    fs.unlink(zipPath, () => {});
-  }
+// GET /api/import/zip/status/:jobId  — poll for job result
+router.get('/zip/status/:jobId', (req, res) => {
+  const job = jobs.get(req.params.jobId);
+  if (!job) { res.status(404).json({ error: 'Job not found' }); return; }
+  res.json(job);
 });
 
 // POST /api/import  { dir } — backward compat
