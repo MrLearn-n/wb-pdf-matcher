@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import type { ChzFile, StatsResponse } from '../types/index.js';
+import { parseChzFilename } from './chzParser.js';
 
 // With tsc rootDir:"src" → dist/services/ in prod, src/services/ in dev
 // Both need 3 levels up to reach project root
@@ -28,6 +29,8 @@ function init(db: Database.Database): void {
       id           INTEGER PRIMARY KEY AUTOINCREMENT,
       file_path    TEXT    NOT NULL UNIQUE,
       product_type TEXT    NOT NULL,
+      subtype      TEXT    NOT NULL DEFAULT '',
+      qualifiers   TEXT    NOT NULL DEFAULT '',
       color        TEXT    NOT NULL,
       size         TEXT    NOT NULL,
       ean          TEXT    NOT NULL DEFAULT '',
@@ -35,11 +38,36 @@ function init(db: Database.Database): void {
       next_page    INTEGER NOT NULL DEFAULT 0
     );
   `);
+  // Migration: add subtype column to existing databases and backfill
+  let needsBackfill = false;
+  try {
+    db.exec(`ALTER TABLE chz_files ADD COLUMN subtype TEXT NOT NULL DEFAULT ''`);
+    needsBackfill = true;
+  } catch {
+    // Column already exists
+  }
+  // Migration: add qualifiers column
+  try {
+    db.exec(`ALTER TABLE chz_files ADD COLUMN qualifiers TEXT NOT NULL DEFAULT ''`);
+    needsBackfill = true;
+  } catch {
+    // Column already exists
+  }
+  if (needsBackfill) {
+    const rows = db.prepare('SELECT id, file_path FROM chz_files').all() as { id: number; file_path: string }[];
+    const update = db.prepare('UPDATE chz_files SET subtype = ?, qualifiers = ? WHERE id = ?');
+    for (const row of rows) {
+      const meta = parseChzFilename(path.basename(row.file_path));
+      if (meta) update.run(meta.subtype, meta.qualifiers, row.id);
+    }
+  }
 }
 
 export function upsertChzFile(
   filePath: string,
   productType: string,
+  subtype: string,
+  qualifiers: string,
   color: string,
   size: string,
   ean: string,
@@ -49,23 +77,52 @@ export function upsertChzFile(
   const existing = db.prepare('SELECT id FROM chz_files WHERE file_path = ?').get(filePath);
   if (existing) return 'skipped';
   db.prepare(`
-    INSERT INTO chz_files (file_path, product_type, color, size, ean, total_pages)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(filePath, productType, color, size, ean, totalPages);
+    INSERT INTO chz_files (file_path, product_type, subtype, qualifiers, color, size, ean, total_pages)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(filePath, productType, subtype, qualifiers, color, size, ean, totalPages);
   return 'inserted';
 }
 
 export function findAvailableChz(
   productType: string,
+  subtype: string,
+  qualifiers: string,
   color: string,
   size: string,
 ): ChzFile | null {
   const db = getDb();
+  // Most specific: subtype + qualifiers + color + size
+  if (subtype && qualifiers) {
+    const row = db.prepare(`
+      SELECT * FROM chz_files
+      WHERE product_type = ? AND subtype = ? AND qualifiers = ? AND color = ? AND size = ? AND next_page < total_pages
+      ORDER BY id LIMIT 1
+    `).get(productType, subtype, qualifiers, color, size) as ChzFile | undefined;
+    if (row) return row;
+  }
+  // subtype only
+  if (subtype) {
+    const row = db.prepare(`
+      SELECT * FROM chz_files
+      WHERE product_type = ? AND subtype = ? AND color = ? AND size = ? AND next_page < total_pages
+      ORDER BY id LIMIT 1
+    `).get(productType, subtype, color, size) as ChzFile | undefined;
+    if (row) return row;
+  }
+  // qualifiers only
+  if (qualifiers) {
+    const row = db.prepare(`
+      SELECT * FROM chz_files
+      WHERE product_type = ? AND qualifiers = ? AND color = ? AND size = ? AND next_page < total_pages
+      ORDER BY id LIMIT 1
+    `).get(productType, qualifiers, color, size) as ChzFile | undefined;
+    if (row) return row;
+  }
+  // Broadest fallback
   const row = db.prepare(`
     SELECT * FROM chz_files
     WHERE product_type = ? AND color = ? AND size = ? AND next_page < total_pages
-    ORDER BY id
-    LIMIT 1
+    ORDER BY id LIMIT 1
   `).get(productType, color, size) as ChzFile | undefined;
   return row ?? null;
 }

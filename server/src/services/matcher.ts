@@ -7,7 +7,7 @@ export function matchPages(wbPages: WbPageInfo[]): MatchResult[] {
       return { wb, chzFile: null, chzPageIndex: null };
     }
 
-    const chzFile = findAvailableChz(wb.productType, wb.color, wb.size);
+    const chzFile = findAvailableChz(wb.productType, wb.subtype, wb.qualifiers, wb.color, wb.size);
     if (!chzFile) {
       return { wb, chzFile: null, chzPageIndex: null };
     }

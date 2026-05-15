@@ -1,6 +1,9 @@
 import path from 'path';
 
 const KNOWN_SIZES = ['xs', 's', 'm', 'l', 'xl', '2xl', '3xl', '4xl', '5xl'];
+export const KNOWN_SUBTYPES = ['оверсайз', 'мужской', 'женский', "базовый"];
+// Phrases that appear symmetrically in both WB names and CZ filenames
+export const KNOWN_QUALIFIERS = ['с начесом', 'без начеса', 'с принтом'];
 
 // Longest first so "2xl" matches before "xl"
 const SIZE_REGEX = new RegExp(`\\b(${[...KNOWN_SIZES].reverse().join('|')})\\b`, 'i');
@@ -21,9 +24,16 @@ const COLOR_VARIANTS: Record<string, string> = {
 
 export interface ChzFileMeta {
   productType: string;
+  subtype: string;
+  qualifiers: string;
   color: string;
   size: string;
   ean: string;
+}
+
+export function extractQualifiers(text: string): string {
+  const lower = text.toLowerCase();
+  return KNOWN_QUALIFIERS.filter((q) => lower.includes(q)).sort().join(',');
 }
 
 export function parseChzFilename(filename: string): ChzFileMeta | null {
@@ -35,9 +45,17 @@ export function parseChzFilename(filename: string): ChzFileMeta | null {
 
   // Normalize to NFC (filesystem may use NFD), then flatten
   const flat = base.normalize('NFC').replace(/_/g, ' ').replace(/-/g, ' ').toLowerCase();
+  const segments = base.normalize('NFC').split('_');
 
   // Product type: first underscore-separated word
-  const productType = base.split('_')[0];
+  const productType = segments[0];
+
+  // Subtype: second segment if it matches a known subtype keyword
+  const secondSeg = (segments[1] ?? '').toLowerCase();
+  const subtype = KNOWN_SUBTYPES.includes(secondSeg) ? secondSeg : '';
+
+  // Qualifiers: known multi-word phrases anywhere in the flat name
+  const qualifiers = extractQualifiers(flat);
 
   // Size: search in flat text
   const sizeMatch = flat.match(SIZE_REGEX);
@@ -55,7 +73,7 @@ export function parseChzFilename(filename: string): ChzFileMeta | null {
 
   if (!size || !color) return null;
 
-  return { productType, color, size, ean };
+  return { productType, subtype, qualifiers, color, size, ean };
 }
 
 export function normalizeWbColor(raw: string): string {

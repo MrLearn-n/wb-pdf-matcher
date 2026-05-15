@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import multer from 'multer';
 import unzipper from 'unzipper';
 import { parseChzFilename } from '../services/chzParser.js';
+
 import { upsertChzFile } from '../services/db.js';
 import type { ImportResponse } from '../types/index.js';
 
@@ -21,7 +22,7 @@ function extractPageCount(filename: string): number | null {
 }
 
 function importFromDir(dir: string): ImportResponse {
-  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.pdf'));
+  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.pdf') && !f.startsWith('._'));
   let imported = 0;
   let skipped = 0;
 
@@ -35,6 +36,8 @@ function importFromDir(dir: string): ImportResponse {
     const result = upsertChzFile(
       path.join(dir, file),
       meta.productType,
+      meta.subtype,
+      meta.qualifiers,
       meta.color,
       meta.size,
       meta.ean,
@@ -72,7 +75,7 @@ router.post('/zip', upload.single('file'), async (req, res) => {
     for (const entry of directory.files) {
       if (entry.type !== 'File') continue;
       const basename = path.basename(entry.path);
-      if (!basename.endsWith('.pdf')) continue;
+      if (!basename.endsWith('.pdf') || basename.startsWith('._')) continue;
       const dest = path.join(CHZ_DIR, basename);
       const content = await entry.buffer();
       fs.writeFileSync(dest, content);

@@ -1,15 +1,28 @@
+export interface BarcodeBounds {
+  x: number; y: number; w: number; h: number; // in WB page points
+}
+
 export interface WbPageInfo {
   pageIndex: number;
   barcode: string;
   productType: string;
+  subtype: string;
+  qualifiers: string;
   color: string;
   size: string;
+  productName: string;
+  brand: string;
+  article: string;
+  country: string;
+  barcodeBounds: BarcodeBounds | null;
 }
 
 export interface ChzFile {
   id: number;
   file_path: string;
   product_type: string;
+  subtype: string;
+  qualifiers: string;
   color: string;
   size: string;
   ean: string;

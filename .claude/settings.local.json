@@ -22,7 +22,19 @@
       "Bash(uv run --with pikepdf python3 -c ' *)",
       "Bash(node *)",
       "Bash(uv run --with pdfminer.six python3 -c ' *)",
-      "Bash(curl -s -X POST http://localhost:3001/api/import/zip -F file=@/tmp/wb_orders_test.zip)"
+      "Bash(curl -s -X POST http://localhost:3001/api/import/zip -F file=@/tmp/wb_orders_test.zip)",
+      "Bash(awk -F'_' '{print $2}')",
+      "Bash(awk -F'_' '{print $1\"_\"$2}')",
+      "Bash(curl -s http://localhost:5173)",
+      "Bash(curl -s -X POST http://localhost:3001/api/match -F \"file=@barcodes_40x58.pdf\")",
+      "Bash(pkill -f \"npm run dev\")",
+      "Bash(pkill -f \"node.*server/dist\")",
+      "Bash(pkill -f \"vite\")",
+      "Bash(curl -s -X POST http://localhost:3001/api/match -F \"pdf=@barcodes_40x58.pdf\")",
+      "Bash(curl -s -X POST http://localhost:3001/api/match -F \"pdf=@6e1bcf7f-7535-4ea4-8cb6-da9e88de3f6c.pdf\")",
+      "Bash(npx tsc *)",
+      "Bash(sqlite3 *)",
+      "Bash(xargs '-I{}' node -e ' *)"
     ]
   }
 }
