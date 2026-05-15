@@ -83,6 +83,28 @@ export function upsertChzFile(
   return 'inserted';
 }
 
+export function upsertChzFilesBulk(
+  entries: Array<{ filePath: string; productType: string; subtype: string; qualifiers: string; color: string; size: string; ean: string; totalPages: number }>,
+): { imported: number; skipped: number } {
+  const db = getDb();
+  const checkStmt = db.prepare('SELECT id FROM chz_files WHERE file_path = ?');
+  const insertStmt = db.prepare(`
+    INSERT INTO chz_files (file_path, product_type, subtype, qualifiers, color, size, ean, total_pages)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  let imported = 0;
+  let skipped = 0;
+  const run = db.transaction(() => {
+    for (const e of entries) {
+      if (checkStmt.get(e.filePath)) { skipped++; continue; }
+      insertStmt.run(e.filePath, e.productType, e.subtype, e.qualifiers, e.color, e.size, e.ean, e.totalPages);
+      imported++;
+    }
+  });
+  run();
+  return { imported, skipped };
+}
+
 export function findAvailableChz(
   productType: string,
   subtype: string,

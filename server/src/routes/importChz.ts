@@ -7,7 +7,7 @@ import multer from 'multer';
 import unzipper from 'unzipper';
 import { parseChzFilename } from '../services/chzParser.js';
 
-import { upsertChzFile } from '../services/db.js';
+import { upsertChzFile, upsertChzFilesBulk } from '../services/db.js';
 import type { ImportResponse } from '../types/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -75,8 +75,15 @@ router.post('/zip', upload.single('file'), async (req, res) => {
   const zipPath = req.file.path;
   fs.mkdirSync(CHZ_DIR, { recursive: true });
 
+  // Fail fast with a clear error instead of letting Railway kill the connection with 502
+  const TIMEOUT_MS = 240_000;
+  const timeoutHandle = setTimeout(() => {
+    if (!res.headersSent) res.status(504).json({ error: 'Import timed out — ZIP is too large or disk is slow' });
+  }, TIMEOUT_MS);
+
   try {
-    // Stream-extract one entry at a time — never holds more than one PDF in RAM
+    const extractedPaths: string[] = [];
+
     await new Promise<void>((resolve, reject) => {
       fs.createReadStream(zipPath)
         .pipe(unzipper.Parse())
@@ -87,6 +94,7 @@ router.post('/zip', upload.single('file'), async (req, res) => {
             return;
           }
           const dest = path.join(CHZ_DIR, basename);
+          extractedPaths.push(dest);
           entry.pipe(fs.createWriteStream(dest))
             .on('error', reject);
         })
@@ -94,10 +102,22 @@ router.post('/zip', upload.single('file'), async (req, res) => {
         .on('error', reject);
     });
 
-    res.json(importFromDir(CHZ_DIR));
+    // Only process newly extracted files — bulk insert in one transaction
+    const entries = [];
+    for (const filePath of extractedPaths) {
+      const basename = path.basename(filePath);
+      const meta = parseChzFilename(basename);
+      if (!meta) continue;
+      const totalPages = extractPageCount(basename);
+      if (!totalPages) continue;
+      entries.push({ filePath, ...meta, totalPages });
+    }
+
+    if (!res.headersSent) res.json(upsertChzFilesBulk(entries));
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    if (!res.headersSent) res.status(500).json({ error: String(err) });
   } finally {
+    clearTimeout(timeoutHandle);
     fs.unlink(zipPath, () => {});
   }
 });
