@@ -14,6 +14,7 @@ export default function ImportPanel({ onImported }: Props) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ImportResponse | null>(null);
   const [error, setError] = useState('');
+  const [uploadStatus, setUploadStatus] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   function handleDrop(e: DragEvent) {
@@ -24,21 +25,47 @@ export default function ImportPanel({ onImported }: Props) {
     else setError('Загрузите ZIP архив');
   }
 
+  const CHUNK_SIZE = 5 * 1024 * 1024; // 5 MB
+
   async function handleSubmit() {
     setLoading(true);
     setError('');
     setResult(null);
+    setUploadStatus('');
 
     try {
       if (tab === 'zip') {
         if (!file) return;
-        const form = new FormData();
-        form.append('file', file);
-        const res = await fetch('/api/import/zip', { method: 'POST', body: form });
-        if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
-        const { jobId } = await res.json();
+        const jobId = crypto.randomUUID();
+        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+        const totalMB = (file.size / 1024 / 1024).toFixed(1);
 
-        // Poll until done
+        for (let i = 0; i < totalChunks; i++) {
+          const start = i * CHUNK_SIZE;
+          const chunk = file.slice(start, start + CHUNK_SIZE);
+          const uploadedMB = Math.min(((i + 1) * CHUNK_SIZE) / 1024 / 1024, file.size / 1024 / 1024).toFixed(1);
+          setUploadStatus(`Загрузка: ${uploadedMB} / ${totalMB} MB`);
+
+          const form = new FormData();
+          form.append('chunk', chunk);
+          form.append('jobId', jobId);
+          form.append('chunkIndex', String(i));
+          form.append('totalChunks', String(totalChunks));
+
+          let res: Response | null = null;
+          for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+              res = await fetch('/api/import/zip/chunk', { method: 'POST', body: form });
+              if (res.ok) break;
+            } catch {
+              if (attempt === 2) throw new Error(`Chunk ${i + 1}/${totalChunks} failed after 3 attempts`);
+              await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+            }
+          }
+          if (!res?.ok) throw new Error((await res!.json()).error ?? res!.statusText);
+        }
+
+        setUploadStatus('Обработка...');
         while (true) {
           await new Promise((r) => setTimeout(r, 2000));
           const poll = await fetch(`/api/import/zip/status/${jobId}`);
@@ -61,6 +88,7 @@ export default function ImportPanel({ onImported }: Props) {
       setError(String(e));
     } finally {
       setLoading(false);
+      setUploadStatus('');
     }
   }
 
@@ -137,7 +165,7 @@ export default function ImportPanel({ onImported }: Props) {
         onClick={handleSubmit}
         disabled={!canSubmit || loading}
       >
-        {loading ? 'Импортируем...' : 'Импортировать'}
+        {uploadStatus || (loading ? 'Импортируем...' : 'Импортировать')}
       </button>
     </div>
   );

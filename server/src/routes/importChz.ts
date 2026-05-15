@@ -20,6 +20,10 @@ const upload = multer({ storage: multer.diskStorage({
   destination: os.tmpdir(),
   filename: (_req, _file, cb) => cb(null, `chz-import-${Date.now()}.zip`),
 }) });
+
+// 6MB limit per chunk (chunks are ≤5MB + overhead)
+const chunkUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 6 * 1024 * 1024 } });
+
 const router = Router();
 
 type Job =
@@ -104,6 +108,32 @@ router.post('/dir', (req, res) => {
     return;
   }
   res.json(importFromDir(dir));
+});
+
+// POST /api/import/zip/chunk  — upload one chunk; last chunk triggers processing
+// Fields: chunk (file), jobId (string), chunkIndex (int), totalChunks (int)
+router.post('/zip/chunk', chunkUpload.single('chunk'), (req, res) => {
+  const { jobId, chunkIndex, totalChunks } = req.body as Record<string, string>;
+  if (!req.file?.buffer || !jobId || chunkIndex === undefined || !totalChunks) {
+    res.status(400).json({ error: 'Missing fields: chunk, jobId, chunkIndex, totalChunks' });
+    return;
+  }
+  const idx = parseInt(chunkIndex, 10);
+  const total = parseInt(totalChunks, 10);
+  const tmpPath = path.join(os.tmpdir(), `chz-import-${jobId}.zip`);
+  try {
+    fs.appendFileSync(tmpPath, req.file.buffer);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+    return;
+  }
+  if (idx === total - 1) {
+    jobs.set(jobId, { status: 'pending' });
+    res.json({ done: true, jobId });
+    processZip(tmpPath, jobId);
+  } else {
+    res.json({ done: false, received: idx + 1 });
+  }
 });
 
 // POST /api/import/zip  multipart: file=<zip>  — start async import, returns { jobId }
